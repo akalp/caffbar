@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+if [[ "${CAFFBAR_SKIP_HOOKS:-0}" == "1" ]]; then
+  echo "[pre-commit] Skipping hooks because CAFFBAR_SKIP_HOOKS=1"
+  exit 0
+fi
+
+cd "$REPO_ROOT"
+
+STAGED_FILES=()
+while IFS= read -r file; do
+  STAGED_FILES+=("$file")
+done < <(git diff --cached --name-only --diff-filter=ACMR)
+
+if [[ ${#STAGED_FILES[@]} -eq 0 ]]; then
+  echo "[pre-commit] No staged file additions/modifications. Skipping validation."
+  exit 0
+fi
+
+needs_full=0
+needs_fast=0
+
+for file in "${STAGED_FILES[@]}"; do
+  case "$file" in
+    CaffBar/*|CaffBar.xcodeproj/*)
+      needs_full=1
+      ;;
+    .githooks/*|scripts/*|.github/workflows/*)
+      needs_fast=1
+      ;;
+    README.md|LICENSE|docs/*|.gitignore)
+      ;;
+    *)
+      # Unknown paths default to fast validation.
+      needs_fast=1
+      ;;
+  esac
+done
+
+if [[ $needs_full -eq 1 ]]; then
+  echo "[pre-commit] Swift/Xcode files changed -> running full local validation..."
+  ./scripts/validate-local.sh --full
+elif [[ $needs_fast -eq 1 ]]; then
+  echo "[pre-commit] Tooling/workflow files changed -> running fast validation..."
+  ./scripts/validate-local.sh --fast
+else
+  echo "[pre-commit] Docs/meta-only commit -> skipping build validation."
+fi
