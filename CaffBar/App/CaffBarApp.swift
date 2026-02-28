@@ -18,7 +18,12 @@ struct CaffBarApp: App {
         self.terminator = terminator
     }
 
-    init(environment: [String: String], terminator: @MainActor @escaping (NSApplication) -> Void = Self.defaultTerminator) {
+    init(environment: [String: String]) {
+        self.environment = environment
+        self.terminator = Self.defaultTerminator
+    }
+
+    init(environment: [String: String], terminator: @MainActor @escaping (NSApplication) -> Void) {
         self.environment = environment
         self.terminator = terminator
     }
