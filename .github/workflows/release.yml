@@ -12,6 +12,11 @@ jobs:
   build-release:
     name: Build and publish release
     runs-on: macos-14
+    env:
+      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     outputs:
       version: ${{ steps.version.outputs.version }}
       sha256: ${{ steps.sha.outputs.sha256 }}
@@ -54,7 +59,7 @@ jobs:
           echo "artifact_name=CaffBar-${VERSION}.zip" >> "$GITHUB_OUTPUT"
 
       - name: Optional codesign / notarize placeholder
-        if: ${{ secrets.APPLE_SIGNING_IDENTITY != '' && secrets.APPLE_ID != '' && secrets.APPLE_APP_PASSWORD != '' && secrets.APPLE_TEAM_ID != '' }}
+        if: ${{ env.APPLE_SIGNING_IDENTITY != '' && env.APPLE_ID != '' && env.APPLE_APP_PASSWORD != '' && env.APPLE_TEAM_ID != '' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -90,9 +95,11 @@ jobs:
     name: Update Homebrew tap cask
     runs-on: ubuntu-latest
     needs: build-release
+    env:
+      HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
     steps:
       - name: Skip gracefully if tap token is missing
-        if: ${{ secrets.HOMEBREW_TAP_TOKEN == '' }}
+        if: ${{ env.HOMEBREW_TAP_TOKEN == '' }}
         shell: bash
         run: |
           echo "HOMEBREW_TAP_TOKEN is not configured."
@@ -101,14 +108,14 @@ jobs:
           exit 0
 
       - name: Clone tap repo
-        if: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
+        if: ${{ env.HOMEBREW_TAP_TOKEN != '' }}
         shell: bash
         run: |
           set -euo pipefail
-          git clone "https://x-access-token:${{ secrets.HOMEBREW_TAP_TOKEN }}@github.com/akalp/homebrew-caffbar.git" tap-repo
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/akalp/homebrew-caffbar.git" tap-repo
 
       - name: Update cask version, sha, and URL
-        if: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
+        if: ${{ env.HOMEBREW_TAP_TOKEN != '' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -127,7 +134,7 @@ jobs:
           ' "$CASK_FILE" "$VERSION" "$SHA"
 
       - name: Commit and push tap update
-        if: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
+        if: ${{ env.HOMEBREW_TAP_TOKEN != '' }}
         shell: bash
         run: |
           set -euo pipefail
