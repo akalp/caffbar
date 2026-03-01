@@ -147,7 +147,7 @@ jobs:
             content = File.read(path)
             content = content.sub(/version\s+"[^"]+"/, "version \"#{version}\"")
             content = content.sub(/sha256\s+"[0-9a-f]{64}"/, "sha256 \"#{sha}\"")
-            content = content.sub(%r{url\s+\"https://github\.com/akalp/caffbar/releases/download/v#\{version\}/CaffBar-#\{version\}\.zip\"}, "url \"https://github.com/akalp/caffbar/releases/download/v#{version}/CaffBar-#{version}.zip\"")
+            content = content.sub(%r{url\s+\"https://github\.com/akalp/caffbar/releases/download/v[^\"]+/CaffBar-[^\"]+\.zip\"}, "url \"https://github.com/akalp/caffbar/releases/download/v#{version}/CaffBar-#{version}.zip\"")
             File.write(path, content)
           ' "$CASK_FILE" "$VERSION" "$SHA"
 
