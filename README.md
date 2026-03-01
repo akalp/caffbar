@@ -84,9 +84,15 @@ cd caffbar
 ./scripts/package.sh
 ```
 
-This produces `dist/CaffBar-<version>.zip` and prints the SHA-256 hash.
+This produces:
+- `dist/CaffBar-<version>.zip`
+- `dist/CaffBar-<version>.dmg`
+
+The script prints SHA-256 hashes for both artifacts.
 
 ## Homebrew Install
+
+Homebrew continues to use the ZIP release artifact.
 
 Tap repo: `akalp/homebrew-caffbar`
 
@@ -101,11 +107,20 @@ brew tap akalp/caffbar
 brew install --cask caffbar
 ```
 
+## Direct Download
+
+GitHub releases publish both a ZIP and a DMG.
+
+For a manual install using the DMG:
+1. Open `CaffBar-<version>.dmg`
+2. In the `Install CaffBar` window, drag `CaffBar.app` into `Applications`
+3. Launch CaffBar from `Applications`
+
 ## Troubleshooting
 
 ### Gatekeeper warns that the app is from an unidentified developer
 
-Unsigned builds are expected by default. You can remove quarantine from a locally downloaded build:
+Unsigned builds and DMGs are expected by default. If macOS blocks a manual install, try right-clicking the app and choosing `Open`, or remove quarantine:
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/CaffBar.app

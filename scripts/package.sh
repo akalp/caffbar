@@ -8,10 +8,21 @@ PBXPROJ_PATH="$PROJECT_PATH/project.pbxproj"
 SCHEME="CaffBar"
 DERIVED_DATA="$REPO_ROOT/build/DerivedData"
 DIST_DIR="$REPO_ROOT/dist"
+DMG_STAGING_DIR=""
+VOLUME_NAME="Install CaffBar"
 
 command -v xcodebuild >/dev/null 2>&1 || { echo "xcodebuild not found" >&2; exit 1; }
 command -v ditto >/dev/null 2>&1 || { echo "ditto not found" >&2; exit 1; }
+command -v hdiutil >/dev/null 2>&1 || { echo "hdiutil not found" >&2; exit 1; }
 command -v shasum >/dev/null 2>&1 || { echo "shasum not found" >&2; exit 1; }
+
+cleanup() {
+  if [[ -n "$DMG_STAGING_DIR" && -d "$DMG_STAGING_DIR" ]]; then
+    rm -rf "$DMG_STAGING_DIR"
+  fi
+}
+
+trap cleanup EXIT
 
 if [[ ! -f "$PBXPROJ_PATH" ]]; then
   echo "Missing project file: $PBXPROJ_PATH" >&2
@@ -41,12 +52,30 @@ if [[ ! -d "$APP_PATH" ]]; then
 fi
 
 ZIP_PATH="$DIST_DIR/CaffBar-$VERSION.zip"
-rm -f "$ZIP_PATH"
+DMG_PATH="$DIST_DIR/CaffBar-$VERSION.dmg"
+rm -f "$ZIP_PATH" "$DMG_PATH"
 
 ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$ZIP_PATH"
 
-SHA_LINE="$(shasum -a 256 "$ZIP_PATH")"
-SHA256="${SHA_LINE%% *}"
+DMG_STAGING_DIR="$(mktemp -d "$DIST_DIR/dmg-staging.XXXXXX")"
+ditto "$APP_PATH" "$DMG_STAGING_DIR/CaffBar.app"
+ln -s /Applications "$DMG_STAGING_DIR/Applications"
+
+hdiutil create \
+  -volname "$VOLUME_NAME" \
+  -srcfolder "$DMG_STAGING_DIR" \
+  -fs HFS+ \
+  -format UDZO \
+  -imagekey zlib-level=9 \
+  -ov \
+  "$DMG_PATH" >/dev/null
+
+ZIP_SHA_LINE="$(shasum -a 256 "$ZIP_PATH")"
+ZIP_SHA256="${ZIP_SHA_LINE%% *}"
+DMG_SHA_LINE="$(shasum -a 256 "$DMG_PATH")"
+DMG_SHA256="${DMG_SHA_LINE%% *}"
 
 printf 'Created: %s\n' "$ZIP_PATH"
-printf 'sha256: %s\n' "$SHA256"
+printf 'sha256(zip): %s\n' "$ZIP_SHA256"
+printf 'Created: %s\n' "$DMG_PATH"
+printf 'sha256(dmg): %s\n' "$DMG_SHA256"

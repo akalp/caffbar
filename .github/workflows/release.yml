@@ -19,8 +19,10 @@ jobs:
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     outputs:
       version: ${{ steps.version.outputs.version }}
-      sha256: ${{ steps.sha.outputs.sha256 }}
-      artifact_name: ${{ steps.names.outputs.artifact_name }}
+      zip_sha256: ${{ steps.sha.outputs.zip_sha256 }}
+      dmg_sha256: ${{ steps.sha.outputs.dmg_sha256 }}
+      zip_artifact_name: ${{ steps.names.outputs.zip_artifact_name }}
+      dmg_artifact_name: ${{ steps.names.outputs.dmg_artifact_name }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -46,7 +48,7 @@ jobs:
             exit 1
           fi
 
-      - name: Build ZIP package
+      - name: Build release packages
         shell: bash
         run: ./scripts/package.sh
 
@@ -56,40 +58,56 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${{ steps.version.outputs.version }}"
-          echo "artifact_name=CaffBar-${VERSION}.zip" >> "$GITHUB_OUTPUT"
+          echo "zip_artifact_name=CaffBar-${VERSION}.zip" >> "$GITHUB_OUTPUT"
+          echo "dmg_artifact_name=CaffBar-${VERSION}.dmg" >> "$GITHUB_OUTPUT"
 
-      - name: Optional codesign / notarize placeholder
+      - name: Optional app signing / notarization placeholder
         if: ${{ env.APPLE_SIGNING_IDENTITY != '' && env.APPLE_ID != '' && env.APPLE_APP_PASSWORD != '' && env.APPLE_TEAM_ID != '' }}
         shell: bash
         run: |
           set -euo pipefail
-          echo "Signing/notarization placeholder: insert certificate import, codesign, notarize, and stapling steps here."
+          echo "Signing/notarization placeholder: insert certificate import, app codesign, DMG-aware notarization, and stapling steps here."
           echo "This workflow intentionally skips signing by default when secrets are not configured."
 
-      - name: Compute SHA-256
+      - name: Compute SHA-256 values
         id: sha
         shell: bash
         run: |
           set -euo pipefail
-          FILE="dist/CaffBar-${{ steps.version.outputs.version }}.zip"
-          SHA="$(shasum -a 256 "$FILE" | awk '{print $1}')"
-          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
-          echo "SHA-256: $SHA"
+          VERSION="${{ steps.version.outputs.version }}"
+          ZIP_FILE="dist/CaffBar-${VERSION}.zip"
+          DMG_FILE="dist/CaffBar-${VERSION}.dmg"
+          ZIP_SHA="$(shasum -a 256 "$ZIP_FILE" | awk '{print $1}')"
+          DMG_SHA="$(shasum -a 256 "$DMG_FILE" | awk '{print $1}')"
+          echo "zip_sha256=$ZIP_SHA" >> "$GITHUB_OUTPUT"
+          echo "dmg_sha256=$DMG_SHA" >> "$GITHUB_OUTPUT"
+          echo "ZIP SHA-256: $ZIP_SHA"
+          echo "DMG SHA-256: $DMG_SHA"
 
-      - name: Upload build artifact
+      - name: Upload ZIP build artifact
         uses: actions/upload-artifact@v4
         with:
           name: caffbar-release-zip
           path: dist/CaffBar-${{ steps.version.outputs.version }}.zip
           if-no-files-found: error
 
+      - name: Upload DMG build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: caffbar-release-dmg
+          path: dist/CaffBar-${{ steps.version.outputs.version }}.dmg
+          if-no-files-found: error
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/CaffBar-${{ steps.version.outputs.version }}.zip
+          files: |
+            dist/CaffBar-${{ steps.version.outputs.version }}.zip
+            dist/CaffBar-${{ steps.version.outputs.version }}.dmg
           generate_release_notes: true
           body: |
-            SHA-256: `${{ steps.sha.outputs.sha256 }}`
+            ZIP SHA-256: `${{ steps.sha.outputs.zip_sha256 }}`
+            DMG SHA-256: `${{ steps.sha.outputs.dmg_sha256 }}`
 
   update-homebrew-tap:
     name: Update Homebrew tap cask
@@ -121,7 +139,7 @@ jobs:
           set -euo pipefail
           CASK_FILE="tap-repo/Casks/caffbar.rb"
           VERSION="${{ needs.build-release.outputs.version }}"
-          SHA="${{ needs.build-release.outputs.sha256 }}"
+          SHA="${{ needs.build-release.outputs.zip_sha256 }}"
           ruby -e '
             path = ARGV[0]
             version = ARGV[1]
